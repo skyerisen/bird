@@ -1,7 +1,6 @@
-package com.example.cliauncher.ui.theme
+package com.shiftline.bird.ui.theme
 
 import android.app.Activity
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -38,7 +37,7 @@ private val LightColorScheme = lightColorScheme(
 )
 
 @Composable
-fun CLIauncherTheme(
+fun BirdTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,

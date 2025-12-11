@@ -1,4 +1,4 @@
-package com.shiftline.cliauncher
+package com.shiftline.bird
 
 import org.junit.Test
 

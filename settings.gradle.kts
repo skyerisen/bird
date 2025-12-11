@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "CLIauncher"
+rootProject.name = "Bird"
 include(":app")

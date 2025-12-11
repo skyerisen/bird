@@ -1,10 +1,10 @@
-package com.example.cliauncher
+package com.shiftline.bird
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import com.example.cliauncher.ui.theme.CLIauncherTheme
+import com.shiftline.bird.ui.theme.BirdTheme
 
 class MainActivity : ComponentActivity() {
     private val viewModel: TerminalViewModel by viewModels()
@@ -12,7 +12,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            CLIauncherTheme {
+            BirdTheme {
                 TerminalScreenWithPermission(viewModel)
             }
         }

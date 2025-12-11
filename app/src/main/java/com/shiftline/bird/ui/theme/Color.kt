@@ -1,4 +1,4 @@
-package com.example.cliauncher.ui.theme
+package com.shiftline.bird.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

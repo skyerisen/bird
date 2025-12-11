@@ -1,4 +1,4 @@
-package com.example.cliauncher
+package com.shiftline.bird
 
 import android.content.Context
 import android.content.Intent

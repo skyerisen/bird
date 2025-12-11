@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.cliauncher"
+    namespace = "com.shiftline.bird"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.cliauncher"
+        applicationId = "com.shiftline.bird"
         minSdk = 35
         targetSdk = 36
         versionCode = 1
@@ -67,8 +67,8 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform("androidx.compose:compose-bom:2023.08.00"))
-    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
-    debugImplementation("androidx.compose.ui:ui-tooling")
-    debugImplementation("androidx.compose.ui:ui-test-manifest")
+    androidTestImplementation(platform(libs.androidx.compose.bom.v20230800))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    debugImplementation(libs.androidx.compose.ui.tooling)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
 }

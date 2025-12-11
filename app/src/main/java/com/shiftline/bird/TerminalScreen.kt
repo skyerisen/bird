@@ -1,4 +1,4 @@
-package com.example.cliauncher
+package com.shiftline.bird
 
 import android.Manifest
 import android.app.WallpaperManager
