@@ -20,6 +20,7 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -31,16 +32,20 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.*
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.core.graphics.drawable.toBitmap
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -169,11 +174,13 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
     var hostname by remember { mutableStateOf(prefs.getString("hostname", "local") ?: "local") }
     var promptArrow by remember { mutableStateOf(prefs.getString("prompt_arrow", ">>>") ?: ">>>") }
     var showArrow by remember { mutableStateOf(prefs.getBoolean("show_arrow", true)) }
+    var blurRadius by remember { mutableStateOf(prefs.getFloat("blur_radius", 12f)) }
+    var overlayAlpha by remember { mutableStateOf(prefs.getFloat("overlay_alpha", 0.7f)) }
 
     val colorScheme = MaterialTheme.colorScheme
     val promptColor = colorScheme.primary
     val outputColor = colorScheme.secondary
-    val overlayColor = colorScheme.surface.copy(alpha = 0.7f)
+    val overlayColor = colorScheme.surface.copy(alpha = overlayAlpha)
     val navBarColor = colorScheme.surfaceVariant.copy(alpha = 0.8f)
 
     LaunchedEffect(key1 = viewModel) {
@@ -200,8 +207,10 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
             currentHostname = hostname,
             currentPromptArrow = promptArrow,
             currentShowArrow = showArrow,
+            currentBlurRadius = blurRadius,
+            currentOverlayAlpha = overlayAlpha,
             onDismiss = { showSettings = false },
-            onSave = { newUsername, newShowDate, newShowUsername, newShowHostname, newHostname, newPromptArrow, newShowArrow ->
+            onSave = { newUsername, newShowDate, newShowUsername, newShowHostname, newHostname, newPromptArrow, newShowArrow, newBlurRadius, newOverlayAlpha ->
                 username = newUsername
                 showDate = newShowDate
                 showUsername = newShowUsername
@@ -209,6 +218,8 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
                 hostname = newHostname
                 promptArrow = newPromptArrow
                 showArrow = newShowArrow
+                blurRadius = newBlurRadius
+                overlayAlpha = newOverlayAlpha
 
                 prefs.edit()
                     .putString("username", newUsername)
@@ -218,6 +229,8 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
                     .putString("hostname", newHostname)
                     .putString("prompt_arrow", newPromptArrow)
                     .putBoolean("show_arrow", newShowArrow)
+                    .putFloat("blur_radius", newBlurRadius)
+                    .putFloat("overlay_alpha", newOverlayAlpha)
                     .apply()
                 showSettings = false
             },
@@ -241,7 +254,7 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
                     contentDescription = null,
                     modifier = Modifier
                         .fillMaxSize()
-                        .blur(radius = 12.dp),
+                        .blur(radius = blurRadius.dp),
                     contentScale = ContentScale.Crop
                 )
             }
@@ -437,8 +450,10 @@ fun SettingsDialog(
     currentHostname: String,
     currentPromptArrow: String,
     currentShowArrow: Boolean,
+    currentBlurRadius: Float,
+    currentOverlayAlpha: Float,
     onDismiss: () -> Unit,
-    onSave: (String, Boolean, Boolean, Boolean, String, String, Boolean) -> Unit,
+    onSave: (String, Boolean, Boolean, Boolean, String, String, Boolean, Float, Float) -> Unit,
     context: Context
 ) {
     var username by remember { mutableStateOf(currentUsername) }
@@ -448,6 +463,8 @@ fun SettingsDialog(
     var hostname by remember { mutableStateOf(currentHostname) }
     var promptArrow by remember { mutableStateOf(currentPromptArrow) }
     var showArrow by remember { mutableStateOf(currentShowArrow) }
+    var blurRadius by remember { mutableStateOf(currentBlurRadius) }
+    var overlayAlpha by remember { mutableStateOf(currentOverlayAlpha) }
 
     val colorScheme = MaterialTheme.colorScheme
 
@@ -711,6 +728,81 @@ fun SettingsDialog(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
+                    // Wallpaper settings
+                    Text(
+                        text = "Wallpaper Settings",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = colorScheme.onSurface
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // Blur Radius
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Blur Radius",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = colorScheme.onSurface
+                            )
+                            Text(
+                                text = "${blurRadius.toInt()}dp",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Slider(
+                            value = blurRadius,
+                            onValueChange = { blurRadius = it },
+                            valueRange = 0f..25f,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Text(
+                            text = "Control wallpaper blur intensity",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // Overlay Alpha
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Overlay Opacity",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = colorScheme.onSurface
+                            )
+                            Text(
+                                text = "${(overlayAlpha * 100).toInt()}%",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Slider(
+                            value = overlayAlpha,
+                            onValueChange = { overlayAlpha = it },
+                            valueRange = 0f..1f,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Text(
+                            text = "Control overlay darkness/lightness",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End
@@ -721,7 +813,7 @@ fun SettingsDialog(
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(
                             onClick = {
-                                onSave(username, showDate, showUsername, showHostname, hostname, promptArrow, showArrow)
+                                onSave(username, showDate, showUsername, showHostname, hostname, promptArrow, showArrow, blurRadius, overlayAlpha)
                             }
                         ) {
                             Text("Save")
@@ -733,6 +825,7 @@ fun SettingsDialog(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun AppsListDialog(
     viewModel: TerminalViewModel,
@@ -741,10 +834,16 @@ fun AppsListDialog(
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val packageManager = context.packageManager
+    val prefs = context.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE)
+
+    var pinnedApps by remember {
+        mutableStateOf(prefs.getStringSet("pinned_apps", emptySet()) ?: emptySet())
+    }
+    var showMenuForPackage by remember { mutableStateOf<String?>(null) }
 
     // Get all apps
     val intent = Intent(Intent.ACTION_MAIN, null).addCategory(Intent.CATEGORY_LAUNCHER)
-    val allApps = remember {
+    val allApps = remember(pinnedApps) {
         packageManager.queryIntentActivities(intent, 0)
             .map { resolveInfo ->
                 val label = resolveInfo.loadLabel(packageManager).toString()
@@ -756,7 +855,10 @@ fun AppsListDialog(
                 }
                 Triple(label, packageName, icon)
             }
-            .sortedBy { it.first.lowercase() }
+            .sortedWith(compareBy(
+                { !pinnedApps.contains(it.second) }, // Pinned first
+                { it.first.lowercase() } // Then alphabetical
+            ))
     }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -809,51 +911,138 @@ fun AppsListDialog(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     items(allApps) { (label, packageName, icon) ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(colorScheme.surfaceVariant.copy(alpha = 0.3f))
-                                .clickable {
-                                    val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
-                                    launchIntent?.let {
-                                        context.startActivity(it)
-                                        onDismiss()
-                                    }
-                                }
-                                .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            icon?.let {
-                                Image(
-                                    bitmap = it,
-                                    contentDescription = label,
+                        val isPinned = pinnedApps.contains(packageName)
+
+                        Box {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(
+                                        if (isPinned)
+                                            colorScheme.primaryContainer.copy(alpha = 0.3f)
+                                        else
+                                            colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                                    )
+                                    .combinedClickable(
+                                        onClick = {
+                                            val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
+                                            launchIntent?.let {
+                                                context.startActivity(it)
+                                                onDismiss()
+                                            }
+                                        },
+                                        onLongClick = {
+                                            showMenuForPackage = packageName
+                                        }
+                                    )
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                icon?.let {
+                                    Image(
+                                        bitmap = it,
+                                        contentDescription = label,
+                                        modifier = Modifier
+                                            .size(56.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                    )
+                                } ?: Box(
                                     modifier = Modifier
                                         .size(56.dp)
                                         .clip(RoundedCornerShape(12.dp))
-                                )
-                            } ?: Box(
-                                modifier = Modifier
-                                    .size(56.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(colorScheme.primaryContainer),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = label.firstOrNull()?.uppercase() ?: "?",
-                                    style = MaterialTheme.typography.headlineMedium,
-                                    color = colorScheme.onPrimaryContainer
-                                )
+                                        .background(colorScheme.primaryContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = label.firstOrNull()?.uppercase() ?: "?",
+                                        style = MaterialTheme.typography.headlineMedium,
+                                        color = colorScheme.onPrimaryContainer
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(16.dp))
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = label,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = colorScheme.onSurface,
+                                        maxLines = 2
+                                    )
+                                }
+
+                                if (isPinned) {
+                                    Icon(
+                                        imageVector = Icons.Filled.PushPin,
+                                        contentDescription = "Pinned",
+                                        tint = colorScheme.primary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                             }
 
-                            Spacer(modifier = Modifier.width(16.dp))
-
-                            Text(
-                                text = label,
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = colorScheme.onSurface,
-                                maxLines = 2
-                            )
+                            // Context menu
+                            if (showMenuForPackage == packageName) {
+                                DropdownMenu(
+                                    expanded = true,
+                                    onDismissRequest = { showMenuForPackage = null }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text(if (isPinned) "Unpin" else "Pin to top") },
+                                        onClick = {
+                                            val newPinnedApps = pinnedApps.toMutableSet()
+                                            if (isPinned) {
+                                                newPinnedApps.remove(packageName)
+                                            } else {
+                                                newPinnedApps.add(packageName)
+                                            }
+                                            pinnedApps = newPinnedApps
+                                            prefs.edit().putStringSet("pinned_apps", newPinnedApps).apply()
+                                            showMenuForPackage = null
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = if (isPinned) Icons.Outlined.PushPin else Icons.Filled.PushPin,
+                                                contentDescription = null
+                                            )
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("App settings") },
+                                        onClick = {
+                                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                                data = Uri.parse("package:$packageName")
+                                            }
+                                            context.startActivity(intent)
+                                            showMenuForPackage = null
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Default.Settings,
+                                                contentDescription = null
+                                            )
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Uninstall") },
+                                        onClick = {
+                                            val intent = Intent(Intent.ACTION_DELETE).apply {
+                                                data = Uri.parse("package:$packageName")
+                                            }
+                                            context.startActivity(intent)
+                                            showMenuForPackage = null
+                                        },
+                                        leadingIcon = {
+                                            Icon(
+                                                imageVector = Icons.Default.Delete,
+                                                contentDescription = null,
+                                                tint = colorScheme.error
+                                            )
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
                 }

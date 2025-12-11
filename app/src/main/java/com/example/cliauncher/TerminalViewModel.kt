@@ -28,6 +28,10 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
             newOutput.add("user@local >>> $input")
 
             when {
+                input.trim() == "clear" -> {
+                    _output.value = emptyList()
+                    return@launch
+                }
                 input.startsWith("web ") -> {
                     val query = input.substring(4)
                     newOutput.add("Searching \"$query\" on the web")
