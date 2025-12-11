@@ -24,6 +24,9 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -34,7 +37,13 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.core.graphics.drawable.toBitmap
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -152,12 +161,17 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
     val isDark = isSystemInDarkTheme()
 
     var showSettings by remember { mutableStateOf(false) }
-    var username by remember {
-        mutableStateOf(
-            context.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE)
-                .getString("username", "user") ?: "user"
-        )
-    }
+    var showAppsList by remember { mutableStateOf(false) }
+
+    val prefs = context.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE)
+
+    var username by remember { mutableStateOf(prefs.getString("username", "user") ?: "user") }
+    var showDate by remember { mutableStateOf(prefs.getBoolean("show_date", true)) }
+    var showUsername by remember { mutableStateOf(prefs.getBoolean("show_username", true)) }
+    var showHostname by remember { mutableStateOf(prefs.getBoolean("show_hostname", true)) }
+    var hostname by remember { mutableStateOf(prefs.getString("hostname", "local") ?: "local") }
+    var promptArrow by remember { mutableStateOf(prefs.getString("prompt_arrow", ">>>") ?: ">>>") }
+    var showArrow by remember { mutableStateOf(prefs.getBoolean("show_arrow", true)) }
 
     val colorScheme = MaterialTheme.colorScheme
     val promptColor = colorScheme.primary
@@ -183,15 +197,42 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
     if (showSettings) {
         SettingsDialog(
             currentUsername = username,
+            currentShowDate = showDate,
+            currentShowUsername = showUsername,
+            currentShowHostname = showHostname,
+            currentHostname = hostname,
+            currentPromptArrow = promptArrow,
+            currentShowArrow = showArrow,
             onDismiss = { showSettings = false },
-            onSave = { newUsername ->
+            onSave = { newUsername, newShowDate, newShowUsername, newShowHostname, newHostname, newPromptArrow, newShowArrow ->
                 username = newUsername
-                context.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE)
-                    .edit()
+                showDate = newShowDate
+                showUsername = newShowUsername
+                showHostname = newShowHostname
+                hostname = newHostname
+                promptArrow = newPromptArrow
+                showArrow = newShowArrow
+
+                prefs.edit()
                     .putString("username", newUsername)
+                    .putBoolean("show_date", newShowDate)
+                    .putBoolean("show_username", newShowUsername)
+                    .putBoolean("show_hostname", newShowHostname)
+                    .putString("hostname", newHostname)
+                    .putString("prompt_arrow", newPromptArrow)
+                    .putBoolean("show_arrow", newShowArrow)
                     .apply()
                 showSettings = false
-            }
+            },
+            context = context
+        )
+    }
+
+    if (showAppsList) {
+        AppsListDialog(
+            viewModel = viewModel,
+            onDismiss = { showAppsList = false },
+            context = context
         )
     }
 
@@ -276,8 +317,28 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        val promptText = buildString {
+                            if (showDate) {
+                                val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
+                                append("[${dateFormat.format(Date())}] ")
+                            }
+                            if (showUsername) {
+                                append(username)
+                            }
+                            if (showHostname && showUsername) {
+                                append("@$hostname")
+                            } else if (showHostname) {
+                                append(hostname)
+                            }
+                            if (showArrow) {
+                                append(" $promptArrow ")
+                            } else {
+                                append(" ")
+                            }
+                        }
+
                         Text(
-                            text = "$username@local >>> ",
+                            text = promptText,
                             fontFamily = FontFamily.Monospace,
                             color = promptColor,
                             fontSize = 14.sp
@@ -334,7 +395,7 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
                         }
 
                         IconButton(
-                            onClick = { /* Действие списка приложений */ },
+                            onClick = { showAppsList = true },
                             modifier = Modifier
                                 .size(48.dp)
                                 .clip(CircleShape)
@@ -369,13 +430,28 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsDialog(
     currentUsername: String,
+    currentShowDate: Boolean,
+    currentShowUsername: Boolean,
+    currentShowHostname: Boolean,
+    currentHostname: String,
+    currentPromptArrow: String,
+    currentShowArrow: Boolean,
     onDismiss: () -> Unit,
-    onSave: (String) -> Unit
+    onSave: (String, Boolean, Boolean, Boolean, String, String, Boolean) -> Unit,
+    context: Context
 ) {
     var username by remember { mutableStateOf(currentUsername) }
+    var showDate by remember { mutableStateOf(currentShowDate) }
+    var showUsername by remember { mutableStateOf(currentShowUsername) }
+    var showHostname by remember { mutableStateOf(currentShowHostname) }
+    var hostname by remember { mutableStateOf(currentHostname) }
+    var promptArrow by remember { mutableStateOf(currentPromptArrow) }
+    var showArrow by remember { mutableStateOf(currentShowArrow) }
+
     val colorScheme = MaterialTheme.colorScheme
 
     Dialog(onDismissRequest = onDismiss) {
@@ -388,9 +464,286 @@ fun SettingsDialog(
                 containerColor = colorScheme.surface
             )
         ) {
-            Column(
+            LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(24.dp)
+            ) {
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Настройки",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = colorScheme.onSurface
+                        )
+                        IconButton(onClick = onDismiss) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = colorScheme.onSurface
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Кнопка системных настроек
+                    Button(
+                        onClick = {
+                            val intent = Intent(Settings.ACTION_SETTINGS)
+                            context.startActivity(intent)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = colorScheme.secondaryContainer,
+                            contentColor = colorScheme.onSecondaryContainer
+                        )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "System Settings",
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Системные настройки")
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Text(
+                        text = "Кастомизация промпта",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = colorScheme.onSurface
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Чип для даты
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Показывать дату",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = colorScheme.onSurface
+                        )
+                        FilterChip(
+                            selected = showDate,
+                            onClick = { showDate = !showDate },
+                            label = { Text(if (showDate) "Вкл" else "Выкл") }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Чип для имени пользователя
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Показывать имя",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = colorScheme.onSurface
+                        )
+                        FilterChip(
+                            selected = showUsername,
+                            onClick = { showUsername = !showUsername },
+                            label = { Text(if (showUsername) "Вкл" else "Выкл") }
+                        )
+                    }
+
+                    if (showUsername) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = username,
+                            onValueChange = { username = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Имя пользователя") },
+                            placeholder = { Text("user") },
+                            singleLine = true
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Чип для хостнейма
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Показывать хостнейм",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = colorScheme.onSurface
+                        )
+                        FilterChip(
+                            selected = showHostname,
+                            onClick = { showHostname = !showHostname },
+                            label = { Text(if (showHostname) "Вкл" else "Выкл") }
+                        )
+                    }
+
+                    if (showHostname) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = hostname,
+                            onValueChange = { hostname = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Хостнейм") },
+                            placeholder = { Text("local") },
+                            singleLine = true
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Чип для стрелочек
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Показывать стрелочки",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = colorScheme.onSurface
+                        )
+                        FilterChip(
+                            selected = showArrow,
+                            onClick = { showArrow = !showArrow },
+                            label = { Text(if (showArrow) "Вкл" else "Выкл") }
+                        )
+                    }
+
+                    if (showArrow) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = promptArrow,
+                            onValueChange = { promptArrow = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Символ стрелочек") },
+                            placeholder = { Text(">>>") },
+                            singleLine = true
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Превью промпта
+                    Text(
+                        text = "Превью промпта:",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    val previewText = buildString {
+                        if (showDate) {
+                            val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
+                            append("[${dateFormat.format(Date())}] ")
+                        }
+                        if (showUsername) {
+                            append(username)
+                        }
+                        if (showHostname && showUsername) {
+                            append("@$hostname")
+                        } else if (showHostname) {
+                            append(hostname)
+                        }
+                        if (showArrow) {
+                            append(" $promptArrow ")
+                        } else {
+                            append(" ")
+                        }
+                    }
+
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = previewText,
+                            fontFamily = FontFamily.Monospace,
+                            color = colorScheme.primary,
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(12.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(onClick = onDismiss) {
+                            Text("Отмена")
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = {
+                                onSave(username, showDate, showUsername, showHostname, hostname, promptArrow, showArrow)
+                            }
+                        ) {
+                            Text("Сохранить")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AppsListDialog(
+    viewModel: TerminalViewModel,
+    onDismiss: () -> Unit,
+    context: Context
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val packageManager = context.packageManager
+
+    // Получаем все приложения
+    val intent = Intent(Intent.ACTION_MAIN, null).addCategory(Intent.CATEGORY_LAUNCHER)
+    val allApps = remember {
+        packageManager.queryIntentActivities(intent, 0)
+            .map { resolveInfo ->
+                val label = resolveInfo.loadLabel(packageManager).toString()
+                val packageName = resolveInfo.activityInfo.packageName
+                val icon = try {
+                    resolveInfo.loadIcon(packageManager).toBitmap().asImageBitmap()
+                } catch (e: Exception) {
+                    null
+                }
+                Triple(label, packageName, icon)
+            }
+            .sortedBy { it.first.lowercase() }
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.9f)
+                .padding(16.dp),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = colorScheme.surface
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
                     .padding(24.dp)
             ) {
                 Row(
@@ -399,7 +752,7 @@ fun SettingsDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Настройки",
+                        text = "Все приложения",
                         style = MaterialTheme.typography.headlineSmall,
                         color = colorScheme.onSurface
                     )
@@ -412,45 +765,71 @@ fun SettingsDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "Имя пользователя",
-                    style = MaterialTheme.typography.labelLarge,
+                    text = "${allApps.size} приложений",
+                    style = MaterialTheme.typography.bodyMedium,
                     color = colorScheme.onSurfaceVariant
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                OutlinedTextField(
-                    value = username,
-                    onValueChange = { username = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("user") },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = colorScheme.primary,
-                        unfocusedBorderColor = colorScheme.outline,
-                        focusedTextColor = colorScheme.onSurface,
-                        unfocusedTextColor = colorScheme.onSurface
-                    )
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(4),
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    TextButton(onClick = onDismiss) {
-                        Text("Отмена")
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Button(
-                        onClick = { onSave(username) },
-                        enabled = username.isNotBlank()
-                    ) {
-                        Text("Сохранить")
+                    items(allApps) { (label, packageName, icon) ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                .clickable {
+                                    val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
+                                    launchIntent?.let {
+                                        context.startActivity(it)
+                                        onDismiss()
+                                    }
+                                }
+                                .padding(12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            icon?.let {
+                                Image(
+                                    bitmap = it,
+                                    contentDescription = label,
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                )
+                            } ?: Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(colorScheme.primaryContainer),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = label.firstOrNull()?.uppercase() ?: "?",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = colorScheme.onPrimaryContainer
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onSurface,
+                                maxLines = 2,
+                                fontSize = 11.sp
+                            )
+                        }
                     }
                 }
             }
