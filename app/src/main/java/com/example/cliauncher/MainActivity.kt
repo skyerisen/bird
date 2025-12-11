@@ -24,9 +24,6 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -244,7 +241,7 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
                     contentDescription = null,
                     modifier = Modifier
                         .fillMaxSize()
-                        .blur(radius = 25.dp),
+                        .blur(radius = 12.dp),
                     contentScale = ContentScale.Crop
                 )
             }
@@ -476,7 +473,7 @@ fun SettingsDialog(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Настройки",
+                            text = "Settings",
                             style = MaterialTheme.typography.headlineSmall,
                             color = colorScheme.onSurface
                         )
@@ -491,7 +488,7 @@ fun SettingsDialog(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Кнопка системных настроек
+                    // System settings button
                     Button(
                         onClick = {
                             val intent = Intent(Settings.ACTION_SETTINGS)
@@ -509,138 +506,170 @@ fun SettingsDialog(
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Системные настройки")
+                        Text("System Settings")
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
 
                     Text(
-                        text = "Кастомизация промпта",
+                        text = "Prompt Customization",
                         style = MaterialTheme.typography.titleMedium,
                         color = colorScheme.onSurface
                     )
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
-                    // Чип для даты
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Показывать дату",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = colorScheme.onSurface
-                        )
-                        FilterChip(
-                            selected = showDate,
-                            onClick = { showDate = !showDate },
-                            label = { Text(if (showDate) "Вкл" else "Выкл") }
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Чип для имени пользователя
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Показывать имя",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = colorScheme.onSurface
-                        )
-                        FilterChip(
-                            selected = showUsername,
-                            onClick = { showUsername = !showUsername },
-                            label = { Text(if (showUsername) "Вкл" else "Выкл") }
-                        )
-                    }
-
-                    if (showUsername) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedTextField(
-                            value = username,
-                            onValueChange = { username = it },
+                    // Show Date
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Имя пользователя") },
-                            placeholder = { Text("user") },
-                            singleLine = true
-                        )
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Show Date",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Display current date and time",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = showDate,
+                                onCheckedChange = { showDate = it }
+                            )
+                        }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
-                    // Чип для хостнейма
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Показывать хостнейм",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = colorScheme.onSurface
-                        )
-                        FilterChip(
-                            selected = showHostname,
-                            onClick = { showHostname = !showHostname },
-                            label = { Text(if (showHostname) "Вкл" else "Выкл") }
-                        )
-                    }
-
-                    if (showHostname) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedTextField(
-                            value = hostname,
-                            onValueChange = { hostname = it },
+                    // Show Username
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Хостнейм") },
-                            placeholder = { Text("local") },
-                            singleLine = true
-                        )
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Show Username",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Display username in prompt",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = showUsername,
+                                onCheckedChange = { showUsername = it }
+                            )
+                        }
+
+                        if (showUsername) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            OutlinedTextField(
+                                value = username,
+                                onValueChange = { username = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Username") },
+                                placeholder = { Text("user") },
+                                singleLine = true
+                            )
+                        }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
-                    // Чип для стрелочек
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Показывать стрелочки",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = colorScheme.onSurface
-                        )
-                        FilterChip(
-                            selected = showArrow,
-                            onClick = { showArrow = !showArrow },
-                            label = { Text(if (showArrow) "Вкл" else "Выкл") }
-                        )
-                    }
-
-                    if (showArrow) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedTextField(
-                            value = promptArrow,
-                            onValueChange = { promptArrow = it },
+                    // Show Hostname
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Символ стрелочек") },
-                            placeholder = { Text(">>>") },
-                            singleLine = true
-                        )
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Show Hostname",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Display hostname in prompt",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = showHostname,
+                                onCheckedChange = { showHostname = it }
+                            )
+                        }
+
+                        if (showHostname) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            OutlinedTextField(
+                                value = hostname,
+                                onValueChange = { hostname = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Hostname") },
+                                placeholder = { Text("local") },
+                                singleLine = true
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // Show Arrow
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Show Prompt Arrow",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Display arrow symbol in prompt",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = showArrow,
+                                onCheckedChange = { showArrow = it }
+                            )
+                        }
+
+                        if (showArrow) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            OutlinedTextField(
+                                value = promptArrow,
+                                onValueChange = { promptArrow = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Arrow Symbol") },
+                                placeholder = { Text(">>>") },
+                                singleLine = true
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // Превью промпта
+                    // Prompt Preview
                     Text(
-                        text = "Превью промпта:",
+                        text = "Prompt Preview:",
                         style = MaterialTheme.typography.labelLarge,
                         color = colorScheme.onSurfaceVariant
                     )
@@ -687,7 +716,7 @@ fun SettingsDialog(
                         horizontalArrangement = Arrangement.End
                     ) {
                         TextButton(onClick = onDismiss) {
-                            Text("Отмена")
+                            Text("Cancel")
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         Button(
@@ -695,7 +724,7 @@ fun SettingsDialog(
                                 onSave(username, showDate, showUsername, showHostname, hostname, promptArrow, showArrow)
                             }
                         ) {
-                            Text("Сохранить")
+                            Text("Save")
                         }
                     }
                 }
@@ -713,7 +742,7 @@ fun AppsListDialog(
     val colorScheme = MaterialTheme.colorScheme
     val packageManager = context.packageManager
 
-    // Получаем все приложения
+    // Get all apps
     val intent = Intent(Intent.ACTION_MAIN, null).addCategory(Intent.CATEGORY_LAUNCHER)
     val allApps = remember {
         packageManager.queryIntentActivities(intent, 0)
@@ -752,7 +781,7 @@ fun AppsListDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Все приложения",
+                        text = "All Apps",
                         style = MaterialTheme.typography.headlineSmall,
                         color = colorScheme.onSurface
                     )
@@ -765,28 +794,26 @@ fun AppsListDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "${allApps.size} приложений",
+                    text = "${allApps.size} apps",
                     style = MaterialTheme.typography.bodyMedium,
                     color = colorScheme.onSurfaceVariant
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(4),
+                LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     items(allApps) { (label, packageName, icon) ->
-                        Column(
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                .background(colorScheme.surfaceVariant.copy(alpha = 0.3f))
                                 .clickable {
                                     val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
                                     launchIntent?.let {
@@ -794,40 +821,38 @@ fun AppsListDialog(
                                         onDismiss()
                                     }
                                 }
-                                .padding(12.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             icon?.let {
                                 Image(
                                     bitmap = it,
                                     contentDescription = label,
                                     modifier = Modifier
-                                        .size(48.dp)
-                                        .clip(RoundedCornerShape(8.dp))
+                                        .size(56.dp)
+                                        .clip(RoundedCornerShape(12.dp))
                                 )
                             } ?: Box(
                                 modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .size(56.dp)
+                                    .clip(RoundedCornerShape(12.dp))
                                     .background(colorScheme.primaryContainer),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
                                     text = label.firstOrNull()?.uppercase() ?: "?",
-                                    style = MaterialTheme.typography.titleLarge,
+                                    style = MaterialTheme.typography.headlineMedium,
                                     color = colorScheme.onPrimaryContainer
                                 )
                             }
 
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.width(16.dp))
 
                             Text(
                                 text = label,
-                                style = MaterialTheme.typography.bodySmall,
+                                style = MaterialTheme.typography.bodyLarge,
                                 color = colorScheme.onSurface,
-                                maxLines = 2,
-                                fontSize = 11.sp
+                                maxLines = 2
                             )
                         }
                     }
