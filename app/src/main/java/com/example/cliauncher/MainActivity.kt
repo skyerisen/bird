@@ -2,6 +2,7 @@ package com.example.cliauncher
 
 import android.Manifest
 import android.app.WallpaperManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -19,6 +20,7 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -28,8 +30,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -49,6 +51,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.core.content.ContextCompat
 import com.example.cliauncher.ui.theme.CLIauncherTheme
 import kotlinx.coroutines.flow.launchIn
@@ -146,6 +149,21 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
     val output by viewModel.output.collectAsState()
     var inputValue by remember { mutableStateOf("") }
     val context = LocalContext.current
+    val isDark = isSystemInDarkTheme()
+
+    var showSettings by remember { mutableStateOf(false) }
+    var username by remember {
+        mutableStateOf(
+            context.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE)
+                .getString("username", "user") ?: "user"
+        )
+    }
+
+    val colorScheme = MaterialTheme.colorScheme
+    val promptColor = colorScheme.primary
+    val outputColor = colorScheme.secondary
+    val overlayColor = colorScheme.surface.copy(alpha = 0.7f)
+    val navBarColor = colorScheme.surfaceVariant.copy(alpha = 0.8f)
 
     LaunchedEffect(key1 = viewModel) {
         viewModel.events.onEach {
@@ -160,6 +178,21 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
     val onCommand: (String) -> Unit = {
         viewModel.processInput(it)
         inputValue = ""
+    }
+
+    if (showSettings) {
+        SettingsDialog(
+            currentUsername = username,
+            onDismiss = { showSettings = false },
+            onSave = { newUsername ->
+                username = newUsername
+                context.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE)
+                    .edit()
+                    .putString("username", newUsername)
+                    .apply()
+                showSettings = false
+            }
+        )
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -179,9 +212,9 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = if (wallpaperBitmap != null && hasPermission) {
-                Color.Black.copy(alpha = 0.6f)
+                overlayColor
             } else {
-                Color.Black
+                colorScheme.background
             }
         ) {
             Column(
@@ -194,16 +227,16 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
                     Text(
                         "Terminal",
                         style = MaterialTheme.typography.headlineMedium,
-                        color = Color.White
+                        color = colorScheme.onSurface
                     )
                     Spacer(modifier = Modifier.height(16.dp))
 
                     LazyColumn(modifier = Modifier.weight(1f)) {
                         items(output) {
-                            val textColor = if (it.startsWith("user@local")) {
-                                Color.White
+                            val textColor = if (it.startsWith("$username@local")) {
+                                promptColor
                             } else {
-                                Color(0xFF82B1FF)
+                                outputColor
                             }
 
                             if (it.startsWith("- ")) {
@@ -244,16 +277,16 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "user@local >>> ",
+                            text = "$username@local >>> ",
                             fontFamily = FontFamily.Monospace,
-                            color = Color.White,
+                            color = promptColor,
                             fontSize = 14.sp
                         )
                         BasicTextField(
                             value = inputValue,
                             onValueChange = { inputValue = it },
                             textStyle = TextStyle(
-                                color = Color.White,
+                                color = colorScheme.onSurface,
                                 fontFamily = FontFamily.Monospace,
                                 fontSize = 14.sp
                             ),
@@ -264,14 +297,13 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
                                 }
                             }),
                             singleLine = true,
-                            cursorBrush = SolidColor(Color.White),
+                            cursorBrush = SolidColor(colorScheme.onSurface),
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
                     Spacer(modifier = Modifier.height(24.dp))
                 }
 
-                // Улучшенная нижняя панель
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -281,7 +313,7 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
                     Row(
                         modifier = Modifier
                             .clip(RoundedCornerShape(28.dp))
-                            .background(Color.White.copy(alpha = 0.15f))
+                            .background(navBarColor)
                             .padding(horizontal = 24.dp, vertical = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(32.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -291,12 +323,12 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
                             modifier = Modifier
                                 .size(48.dp)
                                 .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.1f))
+                                .background(colorScheme.primaryContainer.copy(alpha = 0.5f))
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Search,
                                 contentDescription = "Search",
-                                tint = Color.White,
+                                tint = colorScheme.onPrimaryContainer,
                                 modifier = Modifier.size(24.dp)
                             )
                         }
@@ -306,30 +338,119 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
                             modifier = Modifier
                                 .size(48.dp)
                                 .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.1f))
+                                .background(colorScheme.primaryContainer.copy(alpha = 0.5f))
                         ) {
                             Icon(
                                 imageVector = Icons.Default.List,
                                 contentDescription = "Apps",
-                                tint = Color.White,
+                                tint = colorScheme.onPrimaryContainer,
                                 modifier = Modifier.size(24.dp)
                             )
                         }
 
                         IconButton(
-                            onClick = { /* Действие меню */ },
+                            onClick = { showSettings = true },
                             modifier = Modifier
                                 .size(48.dp)
                                 .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.1f))
+                                .background(colorScheme.primaryContainer.copy(alpha = 0.5f))
                         ) {
                             Icon(
                                 imageVector = Icons.Default.MoreVert,
-                                contentDescription = "More",
-                                tint = Color.White,
+                                contentDescription = "Settings",
+                                tint = colorScheme.onPrimaryContainer,
                                 modifier = Modifier.size(24.dp)
                             )
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsDialog(
+    currentUsername: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit
+) {
+    var username by remember { mutableStateOf(currentUsername) }
+    val colorScheme = MaterialTheme.colorScheme
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = colorScheme.surface
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Настройки",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = colorScheme.onSurface
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = colorScheme.onSurface
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Text(
+                    text = "Имя пользователя",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                OutlinedTextField(
+                    value = username,
+                    onValueChange = { username = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("user") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = colorScheme.primary,
+                        unfocusedBorderColor = colorScheme.outline,
+                        focusedTextColor = colorScheme.onSurface,
+                        unfocusedTextColor = colorScheme.onSurface
+                    )
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Отмена")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = { onSave(username) },
+                        enabled = username.isNotBlank()
+                    ) {
+                        Text("Сохранить")
                     }
                 }
             }
