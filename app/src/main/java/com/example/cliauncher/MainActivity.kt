@@ -1,36 +1,55 @@
 package com.example.cliauncher
 
+import android.Manifest
+import android.app.WallpaperManager
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.example.cliauncher.ui.theme.CLIauncherTheme
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -42,14 +61,88 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             CLIauncherTheme {
-                TerminalScreen(viewModel)
+                TerminalScreenWithPermission(viewModel)
             }
         }
     }
 }
 
 @Composable
-fun TerminalScreen(viewModel: TerminalViewModel) {
+fun TerminalScreenWithPermission(viewModel: TerminalViewModel) {
+    val context = LocalContext.current
+    var hasPermission by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                Environment.isExternalStorageManager()
+            } else {
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.READ_EXTERNAL_STORAGE
+                ) == PackageManager.PERMISSION_GRANTED
+            }
+        )
+    }
+    var wallpaperBitmap by remember { mutableStateOf<ImageBitmap?>(null) }
+
+    val legacyPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { isGranted -> hasPermission = isGranted }
+    )
+
+    val manageStorageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        hasPermission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Environment.isExternalStorageManager()
+        } else {
+            true
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (!hasPermission) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                try {
+                    val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+                    intent.data = Uri.parse("package:${context.packageName}")
+                    manageStorageLauncher.launch(intent)
+                } catch (e: Exception) {
+                    val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                    manageStorageLauncher.launch(intent)
+                }
+            } else {
+                legacyPermissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
+            }
+        }
+    }
+
+    LaunchedEffect(hasPermission) {
+        if (hasPermission) {
+            try {
+                val wallpaperManager = WallpaperManager.getInstance(context)
+                val wallpaperDrawable = wallpaperManager.peekDrawable()
+                wallpaperBitmap = wallpaperDrawable?.let {
+                    val bitmap = Bitmap.createBitmap(
+                        it.intrinsicWidth.coerceAtLeast(1),
+                        it.intrinsicHeight.coerceAtLeast(1),
+                        Bitmap.Config.ARGB_8888
+                    )
+                    val canvas = Canvas(bitmap)
+                    it.setBounds(0, 0, canvas.width, canvas.height)
+                    it.draw(canvas)
+                    bitmap.asImageBitmap()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    TerminalScreen(viewModel, wallpaperBitmap, hasPermission)
+}
+
+@Composable
+fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, hasPermission: Boolean) {
     val output by viewModel.output.collectAsState()
     var inputValue by remember { mutableStateOf("") }
     val context = LocalContext.current
@@ -69,92 +162,177 @@ fun TerminalScreen(viewModel: TerminalViewModel) {
         inputValue = ""
     }
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = Color.Black.copy(alpha = 0.5f)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (hasPermission) {
+            wallpaperBitmap?.let {
+                Image(
+                    bitmap = it,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .blur(radius = 25.dp),
+                    contentScale = ContentScale.Crop
+                )
+            }
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = if (wallpaperBitmap != null && hasPermission) {
+                Color.Black.copy(alpha = 0.6f)
+            } else {
+                Color.Black
+            }
         ) {
-            Column(modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 16.dp)) {
-                Spacer(modifier = Modifier.height(32.dp))
-                Text("Terminal", style = MaterialTheme.typography.headlineMedium, color = Color.White)
-                Spacer(modifier = Modifier.height(16.dp))
-                LazyColumn(modifier = Modifier.weight(1f)) {
-                    items(output) {
-                        val textColor = if (it.startsWith("user@local")) Color.White else Color(0xFF82B1FF)
-                        if (it.startsWith("- ")) { // App suggestion
-                            val parts = it.removePrefix("- ").split(" (")
-                            val appName = parts[0]
-                            val packageName = parts[1].removeSuffix(")")
-                            Text(
-                                text = appName,
+            Column(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                Column(modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 16.dp)) {
+                    Spacer(modifier = Modifier.height(32.dp))
+                    Text(
+                        "Terminal",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    LazyColumn(modifier = Modifier.weight(1f)) {
+                        items(output) {
+                            val textColor = if (it.startsWith("user@local")) {
+                                Color.White
+                            } else {
+                                Color(0xFF82B1FF)
+                            }
+
+                            if (it.startsWith("- ")) {
+                                val parts = it.removePrefix("- ").split(" (")
+                                val appName = parts[0]
+                                val packageName = parts.getOrNull(1)?.removeSuffix(")")
+
+                                Text(
+                                    text = appName,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = textColor,
+                                    fontSize = 14.sp,
+                                    modifier = Modifier
+                                        .clickable {
+                                            packageName?.let { pkg ->
+                                                val launchIntent = context.packageManager
+                                                    .getLaunchIntentForPackage(pkg)
+                                                launchIntent?.let { intent ->
+                                                    context.startActivity(intent)
+                                                }
+                                            }
+                                        }
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp)
+                                )
+                            } else {
+                                Text(
+                                    text = it,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = textColor,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "user@local >>> ",
+                            fontFamily = FontFamily.Monospace,
+                            color = Color.White,
+                            fontSize = 14.sp
+                        )
+                        BasicTextField(
+                            value = inputValue,
+                            onValueChange = { inputValue = it },
+                            textStyle = TextStyle(
+                                color = Color.White,
                                 fontFamily = FontFamily.Monospace,
-                                color = textColor,
-                                fontSize = 14.sp,
-                                modifier = Modifier.clickable { 
-                                    val launchIntent = context.packageManager.getLaunchIntentForPackage(packageName)
-                                    context.startActivity(launchIntent)
-                                 }.fillMaxWidth()
-                            )
-                        } else {
-                            Text(
-                                text = it,
-                                fontFamily = FontFamily.Monospace,
-                                color = textColor,
                                 fontSize = 14.sp
+                            ),
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                            keyboardActions = KeyboardActions(onSend = {
+                                if (inputValue.isNotBlank()) {
+                                    onCommand(inputValue.trim())
+                                }
+                            }),
+                            singleLine = true,
+                            cursorBrush = SolidColor(Color.White),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
+
+                // Улучшенная нижняя панель
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 24.dp, start = 16.dp, end = 16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(28.dp))
+                            .background(Color.White.copy(alpha = 0.15f))
+                            .padding(horizontal = 24.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(32.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = { /* Действие поиска */ },
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.1f))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "Search",
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+
+                        IconButton(
+                            onClick = { /* Действие списка приложений */ },
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.1f))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.List,
+                                contentDescription = "Apps",
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+
+                        IconButton(
+                            onClick = { /* Действие меню */ },
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.1f))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "More",
+                                tint = Color.White,
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "user@local >>> ",
-                        fontFamily = FontFamily.Monospace,
-                        color = Color.White,
-                        fontSize = 14.sp
-                    )
-                    BasicTextField(
-                        value = inputValue,
-                        onValueChange = { inputValue = it },
-                        textStyle = TextStyle(
-                            color = Color.White,
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 14.sp
-                        ),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                        keyboardActions = KeyboardActions(onSend = {
-                            if (inputValue.isNotBlank()) {
-                                onCommand(inputValue.trim())
-                            }
-                        }),
-                        singleLine = true,
-                        cursorBrush = SolidColor(Color.White),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-                Spacer(modifier = Modifier.height(16.dp))
             }
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(MaterialTheme.colorScheme.surface)
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Icon(painter = painterResource(id = android.R.drawable.ic_input_get), contentDescription = "Keyboard")
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Icon(painter = painterResource(id = android.R.drawable.ic_menu_sort_by_size), contentDescription = "List")
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Icon(Icons.Default.MoreVert, contentDescription = "More")
-                }
-            }
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
