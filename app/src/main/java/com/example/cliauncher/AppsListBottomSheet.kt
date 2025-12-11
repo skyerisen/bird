@@ -36,7 +36,7 @@ fun AppsListBottomSheet(
     val colorScheme = MaterialTheme.colorScheme
     val packageManager = context.packageManager
     val prefs = context.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE)
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     var pinnedApps by remember {
         mutableStateOf(prefs.getStringSet("pinned_apps", emptySet()) ?: emptySet())
@@ -71,7 +71,6 @@ fun AppsListBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.9f)
                 .padding(horizontal = 24.dp)
         ) {
             Text(
@@ -91,8 +90,11 @@ fun AppsListBottomSheet(
             Spacer(modifier = Modifier.height(16.dp))
 
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 600.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                contentPadding = PaddingValues(bottom = 24.dp)
             ) {
                 items(allApps) { (label, packageName, icon) ->
                     val isPinned = pinnedApps.contains(packageName)
