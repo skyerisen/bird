@@ -45,6 +45,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.shiftline.bird.ui.theme.getLauncherColors
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import java.text.SimpleDateFormat
@@ -129,31 +130,16 @@ fun TerminalScreenWithPermission(viewModel: TerminalViewModel) {
 @Composable
 fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, hasPermission: Boolean) {
     val output by viewModel.output.collectAsState()
+    val settings by viewModel.settings.collectAsState()
+
     var inputValue by remember { mutableStateOf("") }
     val context = LocalContext.current
-    val isDark = isSystemInDarkTheme()
 
     var showSettings by remember { mutableStateOf(false) }
     var showAppsList by remember { mutableStateOf(false) }
 
-    val prefs = context.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE)
-
-    var username by remember { mutableStateOf(prefs.getString("username", "user") ?: "user") }
-    var showDate by remember { mutableStateOf(prefs.getBoolean("show_date", true)) }
-    var showUsername by remember { mutableStateOf(prefs.getBoolean("show_username", true)) }
-    var showHostname by remember { mutableStateOf(prefs.getBoolean("show_hostname", true)) }
-    var hostname by remember { mutableStateOf(prefs.getString("hostname", "local") ?: "local") }
-    var promptArrow by remember { mutableStateOf(prefs.getString("prompt_arrow", ">>>") ?: ">>>") }
-    var showArrow by remember { mutableStateOf(prefs.getBoolean("show_arrow", true)) }
-    var blurRadius by remember { mutableStateOf(prefs.getFloat("blur_radius", 12f)) }
-    var overlayAlpha by remember { mutableStateOf(prefs.getFloat("overlay_alpha", 0.7f)) }
-    var showTerminalLabel by remember { mutableStateOf(prefs.getBoolean("show_terminal_label", true)) }
-
     val colorScheme = MaterialTheme.colorScheme
-    val promptColor = colorScheme.primary
-    val outputColor = colorScheme.secondary
-    val overlayColor = colorScheme.surface.copy(alpha = overlayAlpha)
-    val navBarColor = colorScheme.surfaceVariant.copy(alpha = 0.8f)
+    val launcherColors = getLauncherColors(colorScheme, settings.overlayAlpha)
 
     LaunchedEffect(key1 = viewModel) {
         viewModel.events.onEach {
@@ -172,52 +158,18 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
 
     if (showSettings) {
         SettingsBottomSheet(
-            currentUsername = username,
-            currentShowDate = showDate,
-            currentShowUsername = showUsername,
-            currentShowHostname = showHostname,
-            currentHostname = hostname,
-            currentPromptArrow = promptArrow,
-            currentShowArrow = showArrow,
-            currentBlurRadius = blurRadius,
-            currentOverlayAlpha = overlayAlpha,
-            currentShowTerminalLabel = showTerminalLabel,
+            currentSettings = settings,
             onDismiss = { showSettings = false },
-            onSave = { newUsername, newShowDate, newShowUsername, newShowHostname, newHostname, newPromptArrow, newShowArrow, newBlurRadius, newOverlayAlpha, newShowTerminalLabel ->
-                username = newUsername
-                showDate = newShowDate
-                showUsername = newShowUsername
-                showHostname = newShowHostname
-                hostname = newHostname
-                promptArrow = newPromptArrow
-                showArrow = newShowArrow
-                blurRadius = newBlurRadius
-                overlayAlpha = newOverlayAlpha
-                showTerminalLabel = newShowTerminalLabel
-
-                prefs.edit()
-                    .putString("username", newUsername)
-                    .putBoolean("show_date", newShowDate)
-                    .putBoolean("show_username", newShowUsername)
-                    .putBoolean("show_hostname", newShowHostname)
-                    .putString("hostname", newHostname)
-                    .putString("prompt_arrow", newPromptArrow)
-                    .putBoolean("show_arrow", newShowArrow)
-                    .putFloat("blur_radius", newBlurRadius)
-                    .putFloat("overlay_alpha", newOverlayAlpha)
-                    .putBoolean("show_terminal_label", newShowTerminalLabel)
-                    .apply()
+            onSave = { newSettings ->
+                viewModel.saveSettings(newSettings)
                 showSettings = false
-            },
-            context = context
+            }
         )
     }
 
     if (showAppsList) {
         AppsListBottomSheet(
-            viewModel = viewModel,
-            onDismiss = { showAppsList = false },
-            context = context
+            onDismiss = { showAppsList = false }
         )
     }
 
@@ -229,7 +181,7 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
                     contentDescription = null,
                     modifier = Modifier
                         .fillMaxSize()
-                        .blur(radius = blurRadius.dp),
+                        .blur(radius = settings.blurRadius.dp),
                     contentScale = ContentScale.Crop
                 )
             }
@@ -238,7 +190,7 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
         Surface(
             modifier = Modifier.fillMaxSize(),
             color = if (wallpaperBitmap != null && hasPermission) {
-                overlayColor
+                launcherColors.overlayColor
             } else {
                 colorScheme.background
             }
@@ -251,7 +203,7 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
                     .padding(horizontal = 16.dp)) {
                     Spacer(modifier = Modifier.height(32.dp))
 
-                    if (showTerminalLabel) {
+                    if (settings.showTerminalLabel) {
                         Text(
                             "Terminal",
                             style = MaterialTheme.typography.headlineMedium,
@@ -262,10 +214,10 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
 
                     LazyColumn(modifier = Modifier.weight(1f)) {
                         items(output) {
-                            val textColor = if (it.startsWith("$username@local")) {
-                                promptColor
+                            val textColor = if (it.startsWith("${settings.username}@")) {
+                                launcherColors.promptColor
                             } else {
-                                outputColor
+                                launcherColors.outputColor
                             }
 
                             if (it.startsWith("- ")) {
@@ -306,20 +258,20 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         val promptText = buildString {
-                            if (showDate) {
+                            if (settings.showDate) {
                                 val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
                                 append("[${dateFormat.format(Date())}] ")
                             }
-                            if (showUsername) {
-                                append(username)
+                            if (settings.showUsername) {
+                                append(settings.username)
                             }
-                            if (showHostname && showUsername) {
-                                append("@$hostname")
-                            } else if (showHostname) {
-                                append(hostname)
+                            if (settings.showHostname && settings.showUsername) {
+                                append("@${settings.hostname}")
+                            } else if (settings.showHostname) {
+                                append(settings.hostname)
                             }
-                            if (showArrow) {
-                                append(" $promptArrow ")
+                            if (settings.showArrow) {
+                                append(" ${settings.promptArrow} ")
                             } else {
                                 append(" ")
                             }
@@ -328,7 +280,7 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
                         Text(
                             text = promptText,
                             fontFamily = FontFamily.Monospace,
-                            color = promptColor,
+                            color = launcherColors.promptColor,
                             fontSize = 14.sp
                         )
                         BasicTextField(
@@ -362,7 +314,7 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
                     Row(
                         modifier = Modifier
                             .clip(RoundedCornerShape(28.dp))
-                            .background(navBarColor)
+                            .background(launcherColors.navBarColor)
                             .padding(horizontal = 24.dp, vertical = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(32.dp),
                         verticalAlignment = Alignment.CenterVertically

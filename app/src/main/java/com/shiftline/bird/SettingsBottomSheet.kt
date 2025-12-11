@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -22,30 +23,21 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsBottomSheet(
-    currentUsername: String,
-    currentShowDate: Boolean,
-    currentShowUsername: Boolean,
-    currentShowHostname: Boolean,
-    currentHostname: String,
-    currentPromptArrow: String,
-    currentShowArrow: Boolean,
-    currentBlurRadius: Float,
-    currentOverlayAlpha: Float,
-    currentShowTerminalLabel: Boolean,
+    currentSettings: com.shiftline.bird.domain.model.LauncherSettings,
     onDismiss: () -> Unit,
-    onSave: (String, Boolean, Boolean, Boolean, String, String, Boolean, Float, Float, Boolean) -> Unit,
-    context: Context
+    onSave: (com.shiftline.bird.domain.model.LauncherSettings) -> Unit
 ) {
-    var username by remember { mutableStateOf(currentUsername) }
-    var showDate by remember { mutableStateOf(currentShowDate) }
-    var showUsername by remember { mutableStateOf(currentShowUsername) }
-    var showHostname by remember { mutableStateOf(currentShowHostname) }
-    var hostname by remember { mutableStateOf(currentHostname) }
-    var promptArrow by remember { mutableStateOf(currentPromptArrow) }
-    var showArrow by remember { mutableStateOf(currentShowArrow) }
-    var blurRadius by remember { mutableStateOf(currentBlurRadius) }
-    var overlayAlpha by remember { mutableStateOf(currentOverlayAlpha) }
-    var showTerminalLabel by remember { mutableStateOf(currentShowTerminalLabel) }
+    val context = LocalContext.current
+    var username by remember { mutableStateOf(currentSettings.username) }
+    var showDate by remember { mutableStateOf(currentSettings.showDate) }
+    var showUsername by remember { mutableStateOf(currentSettings.showUsername) }
+    var showHostname by remember { mutableStateOf(currentSettings.showHostname) }
+    var hostname by remember { mutableStateOf(currentSettings.hostname) }
+    var promptArrow by remember { mutableStateOf(currentSettings.promptArrow) }
+    var showArrow by remember { mutableStateOf(currentSettings.showArrow) }
+    var blurRadius by remember { mutableStateOf(currentSettings.blurRadius) }
+    var overlayAlpha by remember { mutableStateOf(currentSettings.overlayAlpha) }
+    var showTerminalLabel by remember { mutableStateOf(currentSettings.showTerminalLabel) }
 
     val colorScheme = MaterialTheme.colorScheme
     val sheetState = rememberModalBottomSheetState()
@@ -414,7 +406,20 @@ fun SettingsBottomSheet(
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = {
-                            onSave(username, showDate, showUsername, showHostname, hostname, promptArrow, showArrow, blurRadius, overlayAlpha, showTerminalLabel)
+                            onSave(
+                                com.shiftline.bird.domain.model.LauncherSettings(
+                                    username = username,
+                                    showDate = showDate,
+                                    showUsername = showUsername,
+                                    showHostname = showHostname,
+                                    hostname = hostname,
+                                    promptArrow = promptArrow,
+                                    showArrow = showArrow,
+                                    blurRadius = blurRadius,
+                                    overlayAlpha = overlayAlpha,
+                                    showTerminalLabel = showTerminalLabel
+                                )
+                            )
                         }
                     ) {
                         Text("Save")
