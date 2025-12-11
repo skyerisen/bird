@@ -66,6 +66,10 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
                     _output.value = emptyList()
                     return@launch
                 }
+                input.trim() == "help" -> {
+                    _events.send(Event.ShowHelp)
+                    return@launch
+                }
                 input.startsWith("web ") -> {
                     val query = input.substring(4)
                     newOutput.add("Searching \"$query\" on the web")
@@ -95,5 +99,6 @@ class TerminalViewModel(application: Application) : AndroidViewModel(application
 
     sealed class Event {
         data class LaunchIntent(val intent: Intent): Event()
+        object ShowHelp: Event()
     }
 }

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,7 +26,8 @@ import java.util.Locale
 fun SettingsBottomSheet(
     currentSettings: com.shiftline.bird.domain.model.LauncherSettings,
     onDismiss: () -> Unit,
-    onSave: (com.shiftline.bird.domain.model.LauncherSettings) -> Unit
+    onSave: (com.shiftline.bird.domain.model.LauncherSettings) -> Unit,
+    onNavigateToHelp: () -> Unit = {}
 ) {
     val context = LocalContext.current
     var username by remember { mutableStateOf(currentSettings.username) }
@@ -61,6 +63,26 @@ fun SettingsBottomSheet(
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
+
+                // My Bird button
+                Button(
+                    onClick = onNavigateToHelp,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colorScheme.primaryContainer,
+                        contentColor = colorScheme.onPrimaryContainer
+                    )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = "My Bird",
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("My Bird")
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // System settings button
                 Button(

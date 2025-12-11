@@ -15,6 +15,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -37,8 +38,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
@@ -134,9 +138,12 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
 
     var inputValue by remember { mutableStateOf("") }
     val context = LocalContext.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
 
     var showSettings by remember { mutableStateOf(false) }
     var showAppsList by remember { mutableStateOf(false) }
+    var showHelp by remember { mutableStateOf(false) }
 
     val colorScheme = MaterialTheme.colorScheme
     val launcherColors = getLauncherColors(colorScheme, settings.overlayAlpha)
@@ -146,6 +153,9 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
             when(it) {
                 is TerminalViewModel.Event.LaunchIntent -> {
                     context.startActivity(it.intent)
+                }
+                is TerminalViewModel.Event.ShowHelp -> {
+                    showHelp = true
                 }
             }
         }.launchIn(this)
@@ -163,6 +173,10 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
             onSave = { newSettings ->
                 viewModel.saveSettings(newSettings)
                 showSettings = false
+            },
+            onNavigateToHelp = {
+                showSettings = false
+                showHelp = true
             }
         )
     }
@@ -170,6 +184,16 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
     if (showAppsList) {
         AppsListBottomSheet(
             onDismiss = { showAppsList = false }
+        )
+    }
+
+    if (showHelp) {
+        HelpBottomSheet(
+            onDismiss = { showHelp = false },
+            onNavigateToSettings = {
+                showHelp = false
+                showSettings = true
+            }
         )
     }
 
@@ -196,7 +220,15 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
             }
         ) {
             Column(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectVerticalDragGestures { _, dragAmount ->
+                            if (dragAmount < -50) {
+                                showAppsList = true
+                            }
+                        }
+                    }
             ) {
                 Column(modifier = Modifier
                     .weight(1f)
@@ -212,98 +244,148 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
                         Spacer(modifier = Modifier.height(16.dp))
                     }
 
-                    LazyColumn(modifier = Modifier.weight(1f)) {
-                        items(output) {
-                            val textColor = if (it.startsWith("${settings.username}@")) {
-                                launcherColors.promptColor
-                            } else {
-                                launcherColors.outputColor
-                            }
+                    // Output container with rounded background
+                    if (output.isNotEmpty()) {
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            color = colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            LazyColumn(
+                                modifier = Modifier.padding(16.dp)
+                            ) {
+                                items(output) {
+                                    val textColor = if (it.startsWith("${settings.username}@")) {
+                                        colorScheme.primary
+                                    } else {
+                                        colorScheme.onSurfaceVariant
+                                    }
 
-                            if (it.startsWith("- ")) {
-                                val parts = it.removePrefix("- ").split(" (")
-                                val appName = parts[0]
-                                val packageName = parts.getOrNull(1)?.removeSuffix(")")
+                                    if (it.startsWith("- ")) {
+                                        val parts = it.removePrefix("- ").split(" (")
+                                        val appName = parts[0]
+                                        val packageName = parts.getOrNull(1)?.removeSuffix(")")
 
-                                Text(
-                                    text = appName,
-                                    fontFamily = FontFamily.Monospace,
-                                    color = textColor,
-                                    fontSize = 14.sp,
-                                    modifier = Modifier
-                                        .clickable {
-                                            packageName?.let { pkg ->
-                                                val launchIntent = context.packageManager
-                                                    .getLaunchIntentForPackage(pkg)
-                                                launchIntent?.let { intent ->
-                                                    context.startActivity(intent)
+                                        Text(
+                                            text = appName,
+                                            fontFamily = FontFamily.Monospace,
+                                            color = textColor,
+                                            fontSize = 14.sp,
+                                            modifier = Modifier
+                                                .clickable {
+                                                    packageName?.let { pkg ->
+                                                        val launchIntent = context.packageManager
+                                                            .getLaunchIntentForPackage(pkg)
+                                                        launchIntent?.let { intent ->
+                                                            context.startActivity(intent)
+                                                        }
+                                                    }
                                                 }
-                                            }
-                                        }
-                                        .fillMaxWidth()
-                                        .padding(vertical = 4.dp)
-                                )
-                            } else {
-                                Text(
-                                    text = it,
-                                    fontFamily = FontFamily.Monospace,
-                                    color = textColor,
-                                    fontSize = 14.sp
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        val promptText = buildString {
-                            if (settings.showDate) {
-                                val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
-                                append("[${dateFormat.format(Date())}] ")
-                            }
-                            if (settings.showUsername) {
-                                append(settings.username)
-                            }
-                            if (settings.showHostname && settings.showUsername) {
-                                append("@${settings.hostname}")
-                            } else if (settings.showHostname) {
-                                append(settings.hostname)
-                            }
-                            if (settings.showArrow) {
-                                append(" ${settings.promptArrow} ")
-                            } else {
-                                append(" ")
-                            }
-                        }
-
-                        Text(
-                            text = promptText,
-                            fontFamily = FontFamily.Monospace,
-                            color = launcherColors.promptColor,
-                            fontSize = 14.sp
-                        )
-                        BasicTextField(
-                            value = inputValue,
-                            onValueChange = { inputValue = it },
-                            textStyle = TextStyle(
-                                color = colorScheme.onSurface,
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 14.sp
-                            ),
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                            keyboardActions = KeyboardActions(onSend = {
-                                if (inputValue.isNotBlank()) {
-                                    onCommand(inputValue.trim())
+                                                .fillMaxWidth()
+                                                .padding(vertical = 4.dp)
+                                        )
+                                    } else {
+                                        Text(
+                                            text = it,
+                                            fontFamily = FontFamily.Monospace,
+                                            color = textColor,
+                                            fontSize = 14.sp,
+                                            modifier = Modifier.padding(vertical = 2.dp)
+                                        )
+                                    }
                                 }
-                            }),
-                            singleLine = true,
-                            cursorBrush = SolidColor(colorScheme.onSurface),
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                    } else {
+                        Spacer(modifier = Modifier.weight(1f))
                     }
-                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Material You styled prompt
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = colorScheme.primaryContainer,
+                        shape = RoundedCornerShape(40.dp)
+                    ) {
+                        Column (
+                            horizontalAlignment = Alignment.Start,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp).heightIn(
+                                min = 48.dp,
+                                max = 80.dp
+                            )
+                        ) {
+                            val promptText = buildString {
+                                if (settings.showDate) {
+                                    val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault())
+                                    append("[${dateFormat.format(Date())}] ")
+                                }
+                                if (settings.showUsername) {
+                                    append(settings.username)
+                                }
+                                if (settings.showHostname && settings.showUsername) {
+                                    append("@${settings.hostname}")
+                                } else if (settings.showHostname) {
+                                    append(settings.hostname)
+                                }
+                                if (settings.showArrow) {
+                                    append(" ${settings.promptArrow}")
+                                }
+                            }
+
+                            if (promptText.isNotEmpty()) {
+                                Surface(
+                                    color = colorScheme.primary.copy(alpha = 0.15f),
+                                    shape = RoundedCornerShape(99.dp)
+                                ) {
+                                    Text(
+                                        text = promptText,
+                                        fontFamily = FontFamily.Monospace,
+                                        color = colorScheme.onPrimaryContainer,
+                                        fontSize = 13.sp,
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            BasicTextField(
+                                value = inputValue,
+                                onValueChange = { inputValue = it },
+                                textStyle = TextStyle(
+                                    color = colorScheme.onPrimaryContainer,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 14.sp
+                                ),
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                                keyboardActions = KeyboardActions(onSend = {
+                                    if (inputValue.isNotBlank()) {
+                                        onCommand(inputValue.trim())
+                                    }
+                                }),
+                                singleLine = true,
+                                cursorBrush = SolidColor(colorScheme.onPrimaryContainer),
+                                modifier = Modifier.weight(1f).padding(horizontal = 16.dp).fillMaxWidth(),
+                                decorationBox = { innerTextField ->
+                                    if (inputValue.isEmpty()) {
+                                        Text(
+                                            text = "Type a command...",
+                                            fontFamily = FontFamily.Monospace,
+                                            color = colorScheme.onPrimaryContainer.copy(alpha = 0.5f),
+                                            fontSize = 14.sp
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                            )
+                        }
+                    }
                 }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
 
                 Box(
                     modifier = Modifier
@@ -320,7 +402,9 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(
-                            onClick = { /* Search action */ },
+                            onClick = {
+                                keyboardController?.show()
+                            },
                             modifier = Modifier
                                 .size(48.dp)
                                 .clip(CircleShape)
@@ -328,7 +412,7 @@ fun TerminalScreen(viewModel: TerminalViewModel, wallpaperBitmap: ImageBitmap?, 
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Search,
-                                contentDescription = "Search",
+                                contentDescription = "Open Keyboard",
                                 tint = colorScheme.onPrimaryContainer,
                                 modifier = Modifier.size(24.dp)
                             )
