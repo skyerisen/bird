@@ -1,9 +1,11 @@
 package com.shiftline.bird
 
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -28,6 +30,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import com.shiftline.bird.data.AppIconFetcher
+import androidx.core.net.toUri
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -206,7 +209,7 @@ fun AppsListBottomSheet(
                                         text = { Text("App settings") },
                                         onClick = {
                                             val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                                data = Uri.parse("package:${app.packageName}")
+                                                data = "package:${app.packageName}".toUri()
                                             }
                                             context.startActivity(intent)
                                             showMenuForPackage = null
@@ -221,10 +224,14 @@ fun AppsListBottomSheet(
                                     DropdownMenuItem(
                                         text = { Text("Uninstall") },
                                         onClick = {
-                                            val intent = Intent(Intent.ACTION_DELETE).apply {
-                                                data = Uri.parse("package:${app.packageName}")
+                                            try {
+                                                val intent = Intent(Intent.ACTION_DELETE).apply {
+                                                    data = "package:${app.packageName}".toUri()
+                                                }
+                                                context.startActivity(intent)
+                                            } catch (e: Exception) {
+                                                Toast.makeText(context, "Can't uninstall this app", Toast.LENGTH_SHORT).show()
                                             }
-                                            context.startActivity(intent)
                                             showMenuForPackage = null
                                         },
                                         leadingIcon = {
